@@ -3,6 +3,9 @@ CREATE OR REPLACE PACKAGE MANANTIAL.pkg_ppe IS
  G_Log UTL_FILE.file_type;
  G_mensaje Varchar2(2000); 
  FUNCTION  Control_ppe(r_inserta_recaud IN OUT PKG_RECAUDACIONES.vIncRecaudacionRec, pOperacion number , pSecuencia number  ) RETURN BOOLEAN ;
+ /*
+ Mantenido en repositorio GIT  
+ */ 
  
 END;
 /
@@ -502,13 +505,12 @@ BEGIN
           END LOOP;
           IF l_Capital > 0  THEN 
              -- Generar Credito a favor del cliente --
-             NULL;  
+             G_Mensaje := G_Mensaje || ' Existe un saldo a favor de ' || to_char(l_Capital ) ;               
           END IF;            
       END IF;   
    END IF;  
    RETURN(lRta);
 END; 
-
 
 
 ----------------------------------------------------------------------------------
