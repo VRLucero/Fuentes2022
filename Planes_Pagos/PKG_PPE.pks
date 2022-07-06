@@ -24,7 +24,8 @@ BEGIN
 	    WHERE  ppe_id = pNroPlan;
 	EXCEPTION  WHEN others  THEN
 	    l_Fecha := Sysdate - pVto;
-	    G_mensaje:=G_mensaje||' ControlFecha():'|| SQLERRM ;      
+	    G_mensaje:=G_mensaje||' ControlFecha():'|| SQLERRM ;
+	    lRta := FALSE;   -- No se puede  continuar        
 	END ;         
     IF l_Fecha < (Sysdate - pVto)  THEN
        lRta := FALSE; -- La propuesta del plan especial, ya esta vencida      
@@ -40,9 +41,12 @@ BEGIN
         SELECT ppe_ppl_id   INTO lRta  	    
 	    FROM   Manantial.PLANES_ESPECIALES
 	    WHERE  ppe_id = pNroPlan;
-	EXCEPTION  WHEN others  THEN
+	EXCEPTION  WHEN NO_DATA_FOUND  THEN
 	    lRta := 0 ;
-	    G_Mensaje := G_Mensaje || 'ControlPlanGenerado():' || SQLERRM ;     
+	    G_Mensaje := G_Mensaje || ' ControlPlanGenerado():No existe el Plan Especial ' ;     
+	WHEN others  THEN
+	    lRta := 0 ;
+	    G_Mensaje := G_Mensaje || ' ControlPlanGenerado():' || SQLERRM ;
 	END ;       
     RETURN(lRta);
 END; 
@@ -947,11 +951,12 @@ BEGIN
     END;
     BEGIN 
        INSERT INTO  Manantial.REL_REC_NOV(rrn_id,rrn_rec_id,rrn_nov_id, rrn_fec_alta,rrn_usr_alta) 
-               VALUES (Manantial.rrn_seq.NEXTVAL,v_rec_seq ,v_Nov_seq , sysdate     ,p_increcaudacionrec.v_usuario);
+               VALUES (Manantial.rrn_seq.NEXTVAL,v_rec_seq ,v_Nov_seq , sysdate     ,p_increcaudacionrec.v_usuario);               
     EXCEPTION WHEN others THEN  
        lRta := 0;  
        G_mensaje:=G_mensaje||' '||sqlerrm ;          
     END;     
+    G_mensaje:=G_mensaje||' Importe Acreditado : '||to_char(p_increcaudacionrec.v_importe) ;
     RETURN(lRta);
 END; 
 -------------------------------------------------------------------------------------------

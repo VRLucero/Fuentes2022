@@ -48,7 +48,7 @@ END;
 Select * from   recaudaciones  where rec_cuenta = '07300221830005'
 Order by rec_id desc 
 
-Select  * from  cuentas_corrientes  where cct_rec_id = 744693680
+Select  * from  cuentas_corrientes  where cct_rec_id = 744801701
 
 Select * from  novedades_facturables 
 where nov_con_inm_id = 300006162
@@ -96,3 +96,52 @@ Select max(rep_id)  From recaudaciones_externas
            FROM REMESAS                
           WHERE rem__fecha = to_date('11052022','ddmmrrrr') AND 
           rem__ere_codigo = 811
+          
+          
+    SELECT rec_id, rec_imp_cobrado, rec_erc_codigo ERC,  det_recaudacion(REC_ID) 
+FROM   RECAUDACIONES  
+WHERE rec_inm_id = 300006162 
+ORDER BY rec_fecha desc        
+
+
+ TYPE vIncorporacionRec IS RECORD(
+      p_ente      RECAUDACIONES_EXTERNAS.rep_ere_codigo%TYPE,
+      p_fecha     DATE,
+      v_usuario   VARCHAR2(15)
+   );
+   
+Declare
+lRta Varchar2(500);    
+p_incorporador PKG_RECAUDACIONES.vIncorporacionRec; 
+Begin
+ p_incorporador.p_ente   := 701 ;
+ p_incorporador.p_fecha  := to_date('04072022','ddmmrrrr'); 
+ p_incorporador.v_usuario:= 'GPORTA';
+ lRta := MANANTIAL.PKG_RECAUDACIONES.recp_0450(p_incorporador ) ;
+ dbms_output.Put_line(lRta);   
+End; 
+
+
+Select  * from remesas
+order by   rem__numero  desc 
+
+Select  rem_seq.nextval from dual; 
+
+906242
+
+Select max(rec_id) from recaudaciones
+
+ Select * from recaudaciones 
+ where rec_id > 744801683 - 100 
+
+
+
+Entes_recaudadores   
+
+Select  max(rep_id) from recaudaciones_externas
+
+Select  *  from recaudaciones_externas
+where   rep_id > 43083693 - 100 
+
+  
+ 

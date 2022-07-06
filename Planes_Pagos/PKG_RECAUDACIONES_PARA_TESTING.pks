@@ -11,7 +11,7 @@ CREATE OR REPLACE PACKAGE MANANTIAL.PKG_RECAUDACIONES IS
 
    lfile   UTL_FILE.file_type;
 
-   TYPE vincorporacionrec IS RECORD(
+   TYPE vIncorporacionRec IS RECORD(
       p_ente      RECAUDACIONES_EXTERNAS.rep_ere_codigo%TYPE,
       p_fecha     DATE,
       v_usuario   VARCHAR2(15)
@@ -67,9 +67,9 @@ CREATE OR REPLACE PACKAGE MANANTIAL.PKG_RECAUDACIONES IS
       descrip   VARCHAR2(100)
    );
 
-  -- FUNCTION recp_0450(p_incorporador PKG_RECAUDACIONES.vincorporacionrec)     RETURN VARCHAR2;
-
-FUNCTION recp_0450 RETURN varchar2;
+ FUNCTION recp_0450(p_incorporador PKG_RECAUDACIONES.vincorporacionrec)     RETURN VARCHAR2;
+ 
+--FUNCTION recp_0450 RETURN varchar2;
 
    FUNCTION CALCULA_DV_BARRA(l_codigo_barra_1 VARCHAR2)
       RETURN VARCHAR2;
@@ -915,9 +915,9 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
    END;
 
 -----------------------------------------------------------------------------
- --  FUNCTION recp_0450(p_incorporador PKG_RECAUDACIONES.vincorporacionrec)      RETURN VARCHAR2 AS
+   FUNCTION recp_0450(p_incorporador PKG_RECAUDACIONES.vIncorporacionRec)  RETURN VARCHAR2 AS
  -- COMMIT;  DESCOMENTAR AL FINALIZAR   PRUEBAS LINEA 1650  
-      FUNCTION recp_0450 RETURN VARCHAR2 AS
+ --     FUNCTION recp_0450 RETURN VARCHAR2 AS
       CURSOR c_recaudaciones_externas(
          p_ente    RECAUDACIONES_EXTERNAS.rep_ere_codigo%TYPE,
          p_fecha   RECAUDACIONES_EXTERNAS.rep_fecha%TYPE) IS
@@ -926,7 +926,7 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
             WHERE rep_fec_baja IS NULL 
             AND rep_ere_codigo = p_ente 
             AND rep_fecha = p_fecha
-            and rep_id =  42553602   -- cta '12200015800009'   
+           -- and rep_id =  42901403   -- cta '12200015800009'   
          ORDER BY rep_id;
 
       CURSOR c_servicio(l_obligacion OBLIGACIONES.obl_id%TYPE) IS
@@ -974,16 +974,16 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
       r_recaudaciones_externas   c_recaudaciones_externas%ROWTYPE;
       r_novedades                NOVEDADES_FACTURABLES%ROWTYPE;
       v_mensaje                  VARCHAR2(300);
-      p_incorporador          PKG_RECAUDACIONES.vincorporacionrec;
+      --p_incorporador          PKG_RECAUDACIONES.vincorporacionrec;
       l_iva                      PKG_SERVICIOS_FIJOS.ivarec;
       r_importe                  PKG_SERVICIOS_FIJOS.importerec;
       nrta                       registro;
       v_rta  varchar2(400);
       lPasoPPE   Boolean;     -- variable que indica el paso por la rutina externa de PPE 
    BEGIN
-      p_incorporador.p_ente := 811;
-      p_incorporador.p_fecha := TO_DATE('11052022','DDMMRRRR');
-      p_incorporador.v_usuario := 'NMENDEZ';
+     -- p_incorporador.p_ente   := 701;
+     -- p_incorporador.p_fecha  := TO_DATE('14062022','DDMMRRRR');
+     -- p_incorporador.v_usuario:= 'NMENDEZ';
 
       /* Determina la fecha contable en base a */
       SELECT MAX(cco_fec_cierre)
@@ -1002,7 +1002,7 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
       l_año_mes_contable := NULL;
       l_fecha_proceso := SYSDATE;
       /* Verifica que existan los registros a incorporar */
-     -- l_retorno := f_verifica_datos(p_incorporador);
+      l_retorno := f_verifica_datos(p_incorporador);
 
       l_retorno := 'S';
       IF l_retorno <> 'S' THEN
@@ -1806,7 +1806,7 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
          END IF;
       END LOOP;
 
-      -- COMMIT;  DESCOMENTAR AL FINALIZAR   PRUEBAS 
+       COMMIT;  --DESCOMENTAR AL FINALIZAR   PRUEBAS 
       l_retorno := 'Proceso de Incorporación Terminado';
       RETURN l_retorno;
    END recp_0450;
