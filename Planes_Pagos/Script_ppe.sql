@@ -98,7 +98,7 @@ Select max(rep_id)  From recaudaciones_externas
           rem__ere_codigo = 811
           
           
-    SELECT rec_id, rec_imp_cobrado, rec_erc_codigo ERC,  det_recaudacion(REC_ID) 
+SELECT rec_id, rec_imp_cobrado, rec_erc_codigo ERC,  det_recaudacion(REC_ID) 
 FROM   RECAUDACIONES  
 WHERE rec_inm_id = 300006162 
 ORDER BY rec_fecha desc        
@@ -135,13 +135,28 @@ Select max(rec_id) from recaudaciones
  where rec_id > 744801683 - 100 
 
 
-
 Entes_recaudadores   
 
 Select  max(rep_id) from recaudaciones_externas
 
 Select  *  from recaudaciones_externas
 where   rep_id > 43083693 - 100 
-
   
+inmuebles 
  
+----------------------------------------
+ 
+Select inm_cuenta , ppc.* 
+from   planes_especiales_cuotas ppc , planes_especiales, inmuebles   
+where  ppc_ppe_id in (13468837,13442152,13456313) 
+and    ppc_ppe_id = ppe_id  
+and    ppe_inm_id = inm_id 
+Order by  inm_cuenta, ppc_nro_cuota  
+
+
+SELECT rec_cuenta, rec_id, rec_fecha, rec_imp_cobrado, rec_erc_codigo ERC,  det_recaudacion(REC_ID) 
+FROM   RECAUDACIONES  
+WHERE rec_cuenta in ('15100114820001','07300659750006','08000016790001') 
+and   rec_fecha > sysdate - 90   
+ORDER BY rec_cuenta, rec_fecha desc, rec_id desc
+       

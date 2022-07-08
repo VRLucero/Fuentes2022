@@ -1057,14 +1057,14 @@ BEGIN
           IF l_ppl > 0 THEN  -- el plan  definitivo esta  generado
              G_mensaje:=G_mensaje||' Plan Generado.ppl_id:'|| to_char(l_ppl);  
              l_EstadoPlan := VerEstadoPlan(l_ppl);         
-             IF l_EstadoPlan IN (1,4,5)  THEN                                                      -- Plan ACTIVO, Moroso, CAIDO
-                G_mensaje:=G_mensaje||' Plan Activo'; 
+             IF l_EstadoPlan IN (1,4,5)  THEN                                                    -- Plan ACTIVO, Moroso, CAIDO
+                G_mensaje:=G_mensaje||' Plan Activo '; 
                 nRta := PagarCuota(l_ppl, r_inserta_recaud, r_aplicador, pOperacion, pSecuencia);      
              ELSIF  l_EstadoPlan = 2 THEN              
                 G_mensaje:=G_mensaje||' Plan Cancelado ';                                        -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)  
-                nRta := RecAcreditada(l_ppl, r_inserta_recaud, pOperacion, pSecuencia);                   --- Generar la  recaudacion en estado = 2
-             ELSIF  l_EstadoPlan = 3 THEN                                                          -- Plan ANULADO
-                G_mensaje:=G_mensaje||' Plan Anulado'; 
+                nRta := RecAcreditada(l_ppl, r_inserta_recaud, pOperacion, pSecuencia);          --- Generar la  recaudacion en estado = 2
+             ELSIF  l_EstadoPlan = 3 THEN                                                        -- Plan ANULADO
+                G_mensaje:=G_mensaje||' Plan Anulado '; 
                 nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);                  --- Generar la  recaudacion en estado = 3
              END IF;  
           ELSE       
