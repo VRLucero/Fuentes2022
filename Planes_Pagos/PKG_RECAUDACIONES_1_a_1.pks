@@ -926,7 +926,7 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
             WHERE rep_fec_baja IS NULL 
             AND rep_ere_codigo = p_ente 
             AND rep_fecha = p_fecha
-            and rep_id =  42901403   -- cta '12200015800009'   
+            and rep_id =  43295426   -- cta '12200015800009'   
          ORDER BY rep_id;
 
       CURSOR c_servicio(l_obligacion OBLIGACIONES.obl_id%TYPE) IS
@@ -981,8 +981,8 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
       v_rta  varchar2(400);
       lPasoPPE   Boolean;     -- variable que indica el paso por la rutina externa de PPE 
    BEGIN
-      p_incorporador.p_ente := 701;
-      p_incorporador.p_fecha := TO_DATE('14062022','DDMMRRRR');
+      p_incorporador.p_ente := 702;
+      p_incorporador.p_fecha := TO_DATE('22072022','DDMMRRRR');
       p_incorporador.v_usuario := 'NMENDEZ';
 
       /* Determina la fecha contable en base a */
@@ -1002,7 +1002,8 @@ CREATE OR REPLACE PACKAGE BODY MANANTIAL.PKG_RECAUDACIONES IS
       l_año_mes_contable := NULL;
       l_fecha_proceso := SYSDATE;
       /* Verifica que existan los registros a incorporar */
-     -- l_retorno := f_verifica_datos(p_incorporador);
+      
+      l_retorno := f_verifica_datos(p_incorporador);
 
       l_retorno := 'S';
       IF l_retorno <> 'S' THEN

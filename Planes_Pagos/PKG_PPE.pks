@@ -445,6 +445,84 @@ BEGIN
   RETURN(lRta); 
 END; 
 
+FUNCTION GenerarCredito( p_aplicador PKG_RECAUDACIONES.vAplicarRecauRec , p_monto number  )  RETURN number IS
+r_importe_iva PKG_SERVICIOS_FIJOS.ImporteRec;
+r_iva         PKG_SERVICIOS_FIJOS.IvaRec;
+v_Nov_seq          Number;
+v_nov_imp_neto     Number;
+v_nov_imp_iva_cf   Number;
+v_nov_imp_iva_ex   Number;
+v_nov_imp_iva_per  Number;
+v_nov_imp_iva_ri   Number; 
+v_nov_imp_iva_ali  Number;
+v_nov_imp_iva_mon  Number;
+v_nov_imp_iva_rni  Number;
+lRta               Number := 0;
+v_con_id           Number;    
+l_inm_id           Number; 
+l_Tipo_responsable Number;  
+Begin  
+    Begin  
+       Select  inm_id, inm_tipo_responsable  into l_inm_id, l_Tipo_responsable
+       From  Manantial.inmuebles 
+       where inm_cuenta =  p_aplicador.v_identificacion;
+    Exception  When Others then        
+	   G_mensaje:=G_mensaje||' err al recuperar INM para credito: '||sqlerrm ;
+	   Return(0);
+    End;  
+    SELECT Manantial.Nov_seq.NEXTVAL  INTO v_Nov_seq    FROM DUAL;
+    r_iva         :=PKG_SERVICIOS_FIJOS.f_imp_iva(l_Tipo_Responsable, 650001, SYSDATE);
+    r_importe_iva :=F_IVA_INVERSO (p_Monto, r_iva.iva,	r_iva.alicuota, r_iva.percepcion);
+    v_nov_imp_neto:= r_importe_iva.neto;    
+    IF l_Tipo_Responsable = 1 THEN
+        v_nov_imp_iva_cf := r_importe_iva.iva;
+    ELSIF l_Tipo_Responsable IN(2,7)  THEN
+        v_nov_imp_iva_ex := r_importe_iva.iva;
+        IF l_Tipo_Responsable = 7 THEN
+           v_nov_imp_iva_per := r_importe_iva.percepcion;
+        END IF;
+    ELSIF l_Tipo_Responsable IN(4,8)  THEN
+        v_nov_imp_iva_ri := r_importe_iva.iva;
+        IF l_Tipo_Responsable = 8 THEN
+	       v_nov_imp_iva_per := r_importe_iva.percepcion;
+        ELSE
+           v_nov_imp_iva_ali := r_importe_iva.alicuota;
+        END IF;
+    ELSIF l_Tipo_Responsable IN(3,9)  THEN
+        v_nov_imp_iva_rni := r_importe_iva.iva;
+        IF l_Tipo_Responsable = 9 THEN
+	       v_nov_imp_iva_per := r_importe_iva.percepcion;
+        END IF;
+    ELSIF l_Tipo_Responsable = 6  THEN
+        v_nov_imp_iva_mon := r_importe_iva.iva;
+        v_nov_imp_iva_ali := r_importe_iva.alicuota;
+    END IF;
+    BEGIN
+        SELECT min(con_id) INTO v_con_id
+        FROM Manantial.CONEXIONES
+        WHERE con_inm_id   = l_inm_id  
+              AND con_tipo = 1
+              AND con_fec_baja IS NULL
+              AND con_Facturable = 'S';
+    EXCEPTION WHEN no_data_found THEN 
+    	v_con_id := 1;
+    END;     
+    -----------------------------------------------------------     
+    BEGIN
+      INSERT INTO Manantial.NOVEDADES_FACTURABLES
+             (NOV_ID   ,NOV_PEF_ANIO              , NOV_PEF_PERIODO             ,NOV_SER_CODIGO,NOV_CON_INM_ID,NOV_CON_ID,NOV_TIPO_NOVEDAD,NOV_FEC_NOVEDAD,NOV_ESTADO,NOV_TIPO_ORIGEN,NOV_NRO_ORIGEN               ,NOV_IMP_NETO  ,NOV_IMP_IVA_CF  ,NOV_IMP_IVA_EX  ,NOV_IMP_IVA_RI  ,NOV_IMP_IVA_RNI  ,NOV_IMP_IVA_MON  ,NOV_IMP_IVA_ALI  ,NOV_IMP_IVA_PER  ,NOV_INM_ID , NOV_CLI_ID,NOV_DESCRIPCION, 
+              NOV_COD_IVA       ,NOV_USR_ALTA                 ,NOV_FEC_ALTA,NOV_MAC_CODIGO)
+	  VALUES (v_Nov_seq,p_aplicador.v_anio,p_aplicador.v_Periodo,650001        ,l_Inm_id   ,v_con_id  ,10              ,Sysdate        ,2         ,'D'            ,p_aplicador.v_factura,v_NOV_IMP_NETO,v_NOV_IMP_IVA_CF,v_NOV_IMP_IVA_EX,v_NOV_IMP_IVA_RI,v_NOV_IMP_IVA_RNI,v_NOV_IMP_IVA_MON,v_NOV_IMP_IVA_ALI,v_NOV_IMP_IVA_PER,l_Inm_id,null   ,'Pago remanente plan especial:'||TO_CHAR(p_aplicador.v_factura),
+			  l_Tipo_Responsable,p_aplicador.v_usuario,Sysdate     ,NULL);
+	  lRta := v_Nov_seq; 		  
+	EXCEPTION WHEN others THEN  
+	  lRta := 0;
+	  G_mensaje:=G_mensaje||' err al generar credito: '||sqlerrm ; 		  
+    END;
+    Return (lRta);
+End; 
+----------------------------------------------------------------------------------------------------------------------------------   
+
 FUNCTION AplicarCapital( p_Cuota_id  number, p_aplicador PKG_RECAUDACIONES.vAplicarRecauRec , p_rec_ID number  )  RETURN number IS
 CURSOR   cDeudas (p_ppe_id   number ) IS 
    SELECT rpo_obl_id, rpo_obl_saldo,  obl_saldo, obl_estado  , obl_fec_vencimiento  , obl_id 
@@ -458,9 +536,10 @@ lRta            Number:=1;
 l_Monto         Number:=0;
 l_Capital       number:=0;
 l_Plan_Especial number:=0;
+l_inm_id        number:=0;  
 BEGIN 
    BEGIN 
-      SELECT  ppe_id  INTO l_Plan_Especial  
+      SELECT  ppe_id  INTO l_Plan_Especial   
       FROM Manantial.OBLIGACIONES, Manantial.PLANES_ESPECIALES     
       WHERE obl_id = p_Cuota_id 
       AND   ppe_ppl_id = obl_ppl_id;
@@ -507,9 +586,10 @@ BEGIN
                  End if;     
               End if;
           END LOOP;
-          IF l_Capital > 0  THEN 
+          IF l_Capital > 0.10  THEN 
              -- Generar Credito a favor del cliente --
-             G_Mensaje := G_Mensaje || ' Existe un saldo a favor de ' || to_char(l_Capital ) ;               
+             G_Mensaje := G_Mensaje || ' Existe un saldo a favor de ' || to_char(l_Capital ) ;
+             lRta := GenerarCredito(p_aplicador , l_capital);                
           END IF;            
       END IF;   
    END IF;  
@@ -553,13 +633,13 @@ BEGIN
   
    /* Carga los datos en la variable que se utiliza para insertar en novedades facturables */
    
-   r_novedades.nov_pef_anio := NULL;
+   r_novedades.nov_pef_anio    := NULL;
    r_novedades.nov_pef_periodo := NULL;
-   r_novedades.nov_con_inm_id := l_inm_id;
-   r_novedades.nov_tipo_novedad := 40;
-   r_novedades.nov_fec_novedad := sysdate;
-   r_novedades.nov_estado := 2;
-   r_novedades.nov_tipo_origen := 'M';
+   r_novedades.nov_con_inm_id  := l_inm_id;
+   r_novedades.nov_tipo_novedad:= 40;
+   r_novedades.nov_fec_novedad:= sysdate;
+   r_novedades.nov_estado     := 2;
+   r_novedades.nov_tipo_origen:= 'M';
    r_novedades.nov_nro_origen := NVL(l_Cuota, 0);
    r_novedades.nov_imp_cambio := 1;
    r_novedades.nov_inm_id := l_inm_id;
@@ -634,12 +714,12 @@ END;
 FUNCTION InformarIntereses( p_Cuota_id  number , p_usuario varchar2 )  RETURN number IS
 
    ----------------------------------
-lRta      Number :=1;
-l_Interes number :=0;
-l_Iva     number :=0;
-l_Ali     number :=0;
-l_inm_id  number :=0;
-l_cli_id  number :=0;
+lRta      Number  :=1;
+l_Interes number  :=0;
+l_Iva     number  :=0;
+l_Ali     number  :=0;
+l_inm_id  number  :=0;
+l_cli_id  number  :=0;
 l_tipo_iva  number:=0;
 l_cuota     Number:=0; 
 l_plan_Pago Number:=0; 
@@ -696,10 +776,10 @@ BEGIN
    r_novedades.nov_imp_iva_per := 0;
    r_novedades.nov_imp_neto := l_Interes - l_Iva - l_Ali ;               
    r_datos_iva := PKG_SERVICIOS_FIJOS.f_imp_iva(l_tipo_iva, 640106,sysdate);
-     IF r_datos_iva.iva IS NULL THEN
-        G_Mensaje := G_Mensaje || ' Error al determinar IVA ';
-        Return(0);
-     END IF;
+   IF r_datos_iva.iva IS NULL THEN
+      G_Mensaje := G_Mensaje || ' Error al determinar IVA ';
+      Return(0);
+   END IF;
 
     /* Calcula el IVA correspondiente, en caso que tenga una nueva categoria */
     
@@ -707,23 +787,20 @@ BEGIN
    r_importe.alicuota     := (r_datos_iva.alicuota * r_novedades.nov_imp_neto) / 100;
    r_importe.percepcion   := (r_datos_iva.percepcion *(r_novedades.nov_imp_neto + r_importe.iva)) / 100;
    r_novedades.nov_cod_iva:= l_tipo_iva;
-
    
    r_novedades.nov_descripcion:='Interes de Financ. Plan de Pago Nro.: '|| LPAD(l_plan_pago, 10, '0')|| ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');
    r_novedades.nov_imp_neto   := l_Interes;
    r_novedades.nov_ser_codigo := 640106;
    l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);
-
  
    r_novedades.nov_descripcion :='Su Pago Intereses  Plan de Pago Nro.: '|| LPAD(l_plan_pago, 10, '0')|| ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');
    r_novedades.nov_imp_neto :=  (l_Interes - l_iva - l_ali) * (-1);
    l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);
-
     
-    r_novedades.nov_descripcion :='Su Pago IVA s/Inte.Plan de Pago Nro.: ' || LPAD(l_plan_pago, 10, '0') || ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');     
-    r_novedades.nov_imp_neto :=(l_iva + l_ali)*(-1);
-    l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);      
-    RETURN(lRta);   
+   r_novedades.nov_descripcion :='Su Pago IVA s/Inte.Plan de Pago Nro.: ' || LPAD(l_plan_pago, 10, '0') || ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');     
+   r_novedades.nov_imp_neto :=(l_iva + l_ali)*(-1);
+   l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);      
+   RETURN(lRta);   
 END; 
 
 -------------------------------------------------
@@ -776,7 +853,7 @@ BEGIN
    END IF; 
    RETURN(lRta); 
 END; 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 FUNCTION PagarCuota(p_ppl number, p_Rec PKG_RECAUDACIONES.vIncRecaudacionRec,p_Aplic PKG_RECAUDACIONES.vAplicarRecauRec,  p_Operacion number, p_Secuencia number ) RETURN number IS
 /* Aplica el pago sobre la cuota del plan de pago . 
 Luego, del total de Capital que contiene la cuota, aplica sobre las  facturas incluidas en el plan de pago.
@@ -1009,8 +1086,8 @@ Begin
     l_neto := r_importe.neto;    
    Select  Manantial.Obl_seq.NextVal into l_id From dual ;
    Begin  
-   Insert into Manantial.Obligaciones(OBL_PEF_ANIO,OBL_PEF_PERIODO,OBL_FEC_VENCIMIENTO,OBL_IMP_ORIGINAL,OBL_SALDO  ,OBL_IMP_NETO,OBL_ID,OBL_CLI_ID,OBL_CON_INM_ID,OBL_FEC_GENERACION,OBL_ESTADO,OBL_NRO_FACTURA,OBL_USR_ALTA,OBL_FEC_ALTA,OBL_PPL_ID,OBL_INM_ID,OBL_TIPO_PLAN, OBL_IMP_IVA_EXE,OBL_IMP_IVA_RI,OBL_IMP_IVA_RNI,OBL_IMP_IVA_MON ,OBL_SE,OBL_FEC_CONTABLE,OBL_POR_IVA_EXE,OBL_POR_IVA_RI,OBL_POR_IVA_RNI,OBL_POR_IVA_MON,OBL_IMP_IVA_CF,OBL_IMP_ALI_RNI,OBL_IMP_ALI_NO_CAT,OBL_POR_IVA_CF,OBL_ALI_RNI,OBL_ALI_NO_CAT,OBL_TPC_CODIGO,OBL_DOM_ID,OBL_Cuenta,OBL_SUC_CODIGO      ,OBL_GRP_CODIGO,OBL_TRE_CODIGO ) 
-                              Values (p_anio      ,p_Periodo      ,p_fec_Cuota        ,p_imp_cuota     ,p_imp_cuota,l_neto      ,l_id  ,  p_cli_id,p_inm_id      ,Sysdate           , 15       ,p_ppl_id       , p_Usuario  ,Sysdate     ,p_ppl_id  ,p_inm_id  ,p_mpp_id     , 0              ,0             ,0              ,0               ,'N'   ,Sysdate         ,0              ,0             ,0              ,0              ,0             ,0              ,0                 ,0             ,0          ,0             ,8             ,l_dom_id  ,l_cuenta  ,substr(l_cuenta,1,3),l_grupo       , l_iva );   
+   Insert into Manantial.Obligaciones(OBL_PEF_ANIO,OBL_PEF_PERIODO,OBL_FEC_VENCIMIENTO,OBL_IMP_ORIGINAL,OBL_SALDO  ,OBL_IMP_NETO,OBL_ID,OBL_CLI_ID,OBL_CON_INM_ID,OBL_FEC_GENERACION,OBL_ESTADO,OBL_NRO_FACTURA,OBL_USR_ALTA,OBL_FEC_ALTA,OBL_PPL_ID,OBL_INM_ID,OBL_TIPO_PLAN, OBL_cuota_plan,OBL_IMP_IVA_EXE,OBL_IMP_IVA_RI,OBL_IMP_IVA_RNI,OBL_IMP_IVA_MON ,OBL_SE,OBL_FEC_CONTABLE,OBL_POR_IVA_EXE,OBL_POR_IVA_RI,OBL_POR_IVA_RNI,OBL_POR_IVA_MON,OBL_IMP_IVA_CF,OBL_IMP_ALI_RNI,OBL_IMP_ALI_NO_CAT,OBL_POR_IVA_CF,OBL_ALI_RNI,OBL_ALI_NO_CAT,OBL_TPC_CODIGO,OBL_DOM_ID,OBL_Cuenta,OBL_SUC_CODIGO      ,OBL_GRP_CODIGO,OBL_TRE_CODIGO ) 
+                              Values (p_anio      ,p_Periodo      ,p_fec_Cuota        ,p_imp_cuota     ,p_imp_cuota,l_neto      ,l_id  ,  p_cli_id,p_inm_id      ,Sysdate           , 15       ,p_ppl_id       , p_Usuario  ,Sysdate     ,p_ppl_id  ,p_inm_id  ,p_mpp_id     , p_nro_cuota   ,0              ,0             ,0              ,0               ,'N'   ,Sysdate         ,0              ,0             ,0              ,0              ,0             ,0              ,0                 ,0             ,0          ,0             ,8             ,l_dom_id  ,l_cuenta  ,substr(l_cuenta,1,3),l_grupo       , l_iva );   
 
    Exception when others then
       G_mensaje:=G_mensaje||' Error al insertar cuota (OBL) de plan:' || sqlerrm  ;
@@ -1034,7 +1111,7 @@ nImpAli number;
 nImpPer number; 
 Begin
   Begin  
-     Select  max(cct_id_movimiento) Into l_Id 
+     Select  max(cct_id_movimiento)+1 Into l_Id 
      From Manantial.cuentas_corrientes 
      where cct_obl_id  = p_obl_id ; 
   Exception  When no_data_Found Then
@@ -1042,7 +1119,7 @@ Begin
   when others  Then 
      G_mensaje:=G_mensaje||' Error al determinar CCT_ID para cuota del plan:' || sqlerrm  ;
      Return(0);    
- End ;
+ End ; 
  Open  cObl; 
  Fetch cObl into rObl; 
 If nvl(l_Id,0) = 0 Then 
@@ -1062,7 +1139,7 @@ Select substr(ser_des_larga,1,70) into l_Descripcion
    -- Neto => r_importe.neto ;
   Begin      
      INSERT INTO Manantial.CUENTAS_CORRIENTES (CCT_OBL_ID, CCT_ID_MOVIMIENTO, CCT_SER_CODIGO, CCT_PEF_ANIO    ,CCT_PEF_PERIODO     ,CCT_TIPO_MOVIMIENTO,CCT_IMP_DEBE,CCT_IMP_HABER,CCT_CONCEPTO ,CCT_FEC_GENERACION     ,CCT_USR_ALTA     ,CCT_FEC_ALTA     ,CCT_GRP_CODIGO     ,CCT_CUENTA     ,CCT_SUC_CODIGO     ,CCT_TRE_CODIGO     ,CCT_IMP_IVA,CCT_POR_IVA  ,CCT_IMP_ALI    ,        CCT_POR_ALI                    )
-                                       VALUES (p_Obl_id  , 1                , p_Servicio    ,rObl.Obl_pef_anio,rObl.Obl_pef_Periodo,8                  ,p_importe   ,0            ,l_Descripcion,rObl.Obl_fec_Generacion,rObl.Obl_usr_alta,rObl.Obl_fec_alta,rObl.Obl_grp_codigo,rObl.Obl_cuenta,rObl.Obl_suc_codigo,rObl.Obl_tre_codigo,nImpIva    ,registro1.iva,nImpAli+nImpPer,registro1.Alicuota+registro1.Percepcion);
+                                       VALUES (p_Obl_id  , l_Id             , p_Servicio    ,rObl.Obl_pef_anio,rObl.Obl_pef_Periodo,8                  ,p_importe   ,0            ,l_Descripcion,rObl.Obl_fec_Generacion,rObl.Obl_usr_alta,rObl.Obl_fec_alta,rObl.Obl_grp_codigo,rObl.Obl_cuenta,rObl.Obl_suc_codigo,rObl.Obl_tre_codigo,nImpIva    ,registro1.iva,nImpAli+nImpPer,registro1.Alicuota+registro1.Percepcion);
   Exception  When Others then  
      G_mensaje:=G_mensaje||' Error al insertar cuota (CCT) de plan:' || sqlerrm  ;
      Return(0);                               
@@ -1070,7 +1147,7 @@ Select substr(ser_des_larga,1,70) into l_Descripcion
   Return (p_Obl_id); 
 End; 
 ----------------------------------------------------------------------------------------------                     
- Function GenerarPlan(p_inserta_recaud PKG_RECAUDACIONES.vIncRecaudacionRec ) return number is
+Function GenerarPlan(p_inserta_recaud PKG_RECAUDACIONES.vIncRecaudacionRec ) return number is
  Cursor cPlanEspecial (p_plan number) Is 
       Select  * 
          from  Manantial.Planes_especiales, Manantial.Modelos_planes_Pago  
@@ -1082,6 +1159,13 @@ End;
      where  ppc_ppe_id = p_plan 
      order by   ppc_nro_cuota ; 
  rCuota cCuotas%RowType;
+ Cursor cDeudas (p_ppe_id   number ) IS 
+   Select obl_id  
+   From   Manantial.REL_PPE_OBL , Manantial.OBLIGACIONES   
+   Where  rpo_ppe_id = p_ppe_id  
+   and    rpo_obl_id = obl_id 
+   and    obl_estado = 15 ;
+rDeuda cDeudas%ROWTYPE;
  lRta   Number := 0;  
  n_Temp Number ; 
  n_Usuario Varchar2(20) := p_inserta_recaud.v_Usuario;
@@ -1094,14 +1178,20 @@ End;
       Return  0; 
     End if;      
      -- Insert del plan de pago Definitivo  --
-     Select  Manantial.ppl_seq.NextVal into n_temp from dual; 
-     Begin   
+    Select  Manantial.ppl_seq.NextVal into n_temp from dual; 
+    Begin   
         Insert into  Manantial.Planes_Pago(PPL_ID, PPL_MPP_ID  , PPL_INM_ID     ,PPL_CLI_ID      ,PPL_DEUDA_HISTORICA      ,PPL_MONTO_RECARGOS       , PPL_IMP_CUOTA     ,PPL_FECHA, PPL_CNT_CUOTAS     ,PPL_PRIMER_VTO      , PPL_QUITA     ,PPL_TASA_INTERES      , PPL_TASA_RECARGOS    , PPL_TASA_BONIFICACIONES     , PPL_IMP_INTERESES     ,PPL_ESTADO,PPL_FEC_CADUCIDAD      ,PPL_MODALIDAD      , PPL_USR_ALTA,PPL_FEC_ALTA,PPL_BONIF_RECARGO      ,PPL_VTO_PAGO_INICIAL      , PPL_MONTO_PAGO_INICIAL     , PPL_INT_PAGO_INICIAL     ,PPL_MAO_CODIGO) 
                                    Values (n_temp, rPlan.mpp_id,rPlan.ppe_inm_id,rPlan.ppe_cli_id,rPlan.ppe_Deuda_Historica,rPlan.ppe_Monto_Recargos,rPlan.ppe_imp_cuota,Sysdate  ,rPlan.ppe_cnt_cuotas,rPlan.ppe_primer_vto,rPlan.ppe_Quita,rPlan.mpp_Tasa_Interes,rPlan.mpp_Tasa_Recargo,rPlan.ppe_Tasa_Bonificaciones,rPlan.ppe_imp_intereses,1         ,rPlan.ppe_fec_caducidad,rPlan.ppe_Modalidad,n_Usuario    ,sysdate     ,rPlan.ppe_bonif_Recargo,rPlan.Ppe_vto_pago_inicial,rPlan.ppe_Monto_pago_inicial,rPlan.ppe_int_pago_inicial,rPlan.mpp_mao_codigo  );
-     Exception When Others then  
+    Exception When Others then  
         G_mensaje:=G_mensaje||' Error en Insert de PLANES_PAGO :'|| sqlerrm ;
         Return 0;                                 
-     End;
+    End;
+     --- Marca obligaciones incluidas en el plan de pago. 
+     for rDeuda in cDeudas(p_inserta_recaud.v_Factura) Loop
+         Update Manantial.Obligaciones 
+             Set obl_ppl_id= n_temp 
+             Where obl_id  = rDeuda.obl_id; 
+     end loop; 
      -- Insert de Cuotas del plan de pagos --
     For rCuota in cCuotas(p_inserta_recaud.v_Factura) loop
         l_Obl_id := Generar_Obligacion(rCuota.ppc_nro_cuota, rCuota.ppc_fec_cuota,rCuota.ppc_pef_anio,rCuota.ppc_pef_periodo,rCuota.ppc_imp_cuota,n_temp, rPlan.mpp_id,rPlan.ppe_inm_id,rPlan.ppe_cli_id ,n_Usuario);
@@ -1119,8 +1209,9 @@ End;
         l_obl_id := Generar_CCT(l_Obl_id,640109,rCuota.ppc_capital  );
         If l_Obl_id = 0 Then
            Return 0; 
-        end if;           
+        end if;  
     End loop;
+    lRta := n_temp;   -- Plan de pago definitivo que se  genero.     
 /*                                  
        UPDATE Manantial.OBLIGACIONES  
        SET obl_imp_original = (SELECT ABS(SUM(cct_imp_debe-cct_imp_haber)) FROM Manantial.CUENTAS_CORRIENTES WHERE cct_obl_id = obl_id and cct_ser_codigo <> 800088 ),
@@ -1128,7 +1219,7 @@ End;
              obl_imp_neto   = (SELECT ABS(SUM(DECODE(cct_imp_debe,0,(cct_imp_haber-cct_imp_iva-cct_imp_ali)*-1,cct_imp_debe-cct_imp_iva-cct_imp_ali))) FROM Manantial.CUENTAS_CORRIENTES WHERE cct_obl_id = obl_id)             
        WHERE obl_id = rObl.Obl_id;    
 */   
-    Begin 
+     Begin 
         Update  Manantial.Planes_Especiales  
         Set     ppe_ppl_id = n_Temp ,
                 ppe_generado = 'S' ,
@@ -1139,7 +1230,7 @@ End;
         G_mensaje:=G_mensaje||' Error al vincular PPE <--> PPL :'|| sqlerrm ;
         lRta :=0; 
      End;           
-    Return lRta ; 
+   Return lRta ; 
  End;                   
  -------------------------------------------------------------------------
 
@@ -1188,8 +1279,8 @@ nRta         Number := 0;
 r_aplicador PKG_RECAUDACIONES.vAplicarRecauRec;
 BEGIN        
     G_Log:= UTL_FILE.fopen('REPORTES', 'Det_Aplic_.log', 'A');    
-    G_mensaje := To_char(sysdate, 'DD/MM/RRRR hh24:mi:ss') ||' '||r_inserta_recaud.v_identificacion ||' '||to_char(r_inserta_recaud.v_importe,'9999999D99')||' '||
-                  to_char(r_inserta_recaud.v_factura)  || ' ' ||to_char(r_inserta_recaud.p_ente) ; 
+    G_mensaje := To_char(sysdate, 'DD/MM/RRRR hh24:mi:ss') ||' '||r_inserta_recaud.v_identificacion ||' '||lpad(ltrim(to_char(r_inserta_recaud.v_importe,'9999999D99')),15)||' '||
+                  lPad(ltrim(to_char(r_inserta_recaud.v_factura)),10)  || ' ' ||to_char(r_inserta_recaud.p_ente) ; 
     r_aplicador.p_rec_id     := NULL;
     r_aplicador.p_erc_codigo := NULL;      
     r_aplicador.p_ente       := r_inserta_recaud.p_ente; 
@@ -1209,7 +1300,7 @@ BEGIN
        --Determinar si el plan de pago tiene mas de 1 anio de generado y es del tipo correcto --
        l_Vigente:= ControlFecha(r_inserta_recaud.v_Factura, l_dias_Vto);     
        IF  NOT(l_Vigente)  THEN
-          G_mensaje:=G_mensaje||' Plan NO-VIGENTE.';          
+          G_mensaje:=G_mensaje||' Plan NO-VIGENTE. Pago Pdte';          
           nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);   --- Generar la  recaudacion en estado = 3           
        ELSE 
           -- debe determinar si el plan definitivo ya esta generado -- 
@@ -1221,10 +1312,10 @@ BEGIN
                 G_mensaje:=G_mensaje||' Plan Activo '; 
                 nRta := PagarCuota(l_ppl, r_inserta_recaud, r_aplicador, pOperacion, pSecuencia);      
              ELSIF  l_EstadoPlan = 2 THEN              
-                G_mensaje:=G_mensaje||' Plan Cancelado ';                                        -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)  
+                G_mensaje:=G_mensaje||' Plan Cancelado Pago Acreditado';                         -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)  
                 nRta := RecAcreditada(l_ppl, r_inserta_recaud, pOperacion, pSecuencia);          --- Generar la  recaudacion en estado = 2
              ELSIF  l_EstadoPlan = 3 THEN                                                        -- Plan ANULADO
-                G_mensaje:=G_mensaje||' Plan Anulado '; 
+                G_mensaje:=G_mensaje||' Plan Anulado Pago Pdte'; 
                 nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);                  --- Generar la  recaudacion en estado = 3
              END IF;  
           ELSE       
@@ -1233,7 +1324,7 @@ BEGIN
              IF nRta > 0 THEN    
                 nRta := PagarCuota(nRta, r_inserta_recaud, r_aplicador,  pOperacion, pSecuencia);
              ELSE                                                              -- no pudo aplicar el pago a la cuota, la paso a recaudacion en estado = 3
-                G_mensaje:=G_mensaje||' Plan NO Generado ';          
+                G_mensaje:=G_mensaje||' Plan NO Generado  Pago Pdte';          
                 nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);   
              END IF;   
           END IF;
@@ -1241,9 +1332,10 @@ BEGIN
     End if; 
     if nRta > 0 Then  
        l_Procesable := TRUE;
+       G_MENSAJE := 'Aplicado-' || G_Mensaje;
     else 
-      G_MENSAJE := 'EXCLUIDO-' || G_Mensaje;
-      l_Procesable := FALSE; 
+       G_MENSAJE := 'EXCLUIDO-' || G_Mensaje;
+       l_Procesable := FALSE; 
     end if;     
     UTL_FILE.put_line( G_Log, G_MENSAJE);
     UTL_FILE.fclose(G_LOG); 
