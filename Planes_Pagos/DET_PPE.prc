@@ -10,9 +10,9 @@ cPos        Number;
 cRet        Varchar2(14000); 
 Begin
   l_archivo := UTL_FILE.fopen('REPORTES', p_Salida||'.txt', 'A');
-   UTL_FILE.put_line( l_archivo, 'REC_ID;INM_CUENTA;INM_ID;REC_OBL_ID;REC_IMP_COBRADO;REC_NRO_COMPROB;;OBL_ID;OBL_CLI_ID;PEF_ANIO;PEF_PERIODO;OBL_IMP_ORIG;OBL_IMP_NETO;OBL_ESTADO;OBL_FEC_VTO;OBL_FEC_APLICAC;'||
-                                 'CCT_ID_MOV;CCT_SER_CODIGO;CCT_IMP_DEBE;CCT_IMP_HABER;CCT_IMP_IVA;CCT_IMP_ALI;;PPL_ID;PPL_MPP_ID;PPL_DEU_HIST;PPL_RECARGOS; PPL_INERESES;PPL_CUOTAS;PPL_IMP_CUOTA;PPL_1ER_VTO;PPL_FEC_CADUCIDAD;'||
-                                 'PPE_ID;PPE_DEU_HIST;PPE_RECARGOS;PPE_INTERESES;PPE_CNT_CUOTAS;PPE_IMP_CUOTA;PPE_FECHA;PPE_1ER_VTO;PPE_FEC_CADUCIDAD');
+   UTL_FILE.put_line( l_archivo, 'REC_ID;INM_CUENTA;INM_ID;REC_OBL_ID;REC_IMP_COBRADO;REC_NRO_COMPROB;;OBL_ID;OBL_CLI_ID;PEF_ANIO;PEF_PERIODO;OBL_NRO_CUTA;OBL_IMP_ORIG;OBL_IMP_NETO;OBL_ESTADO;OBL_FEC_VTO;OBL_FEC_APLICAC;'||
+                                 'CCT_ID_MOV;CCT_SER_CODIGO;CCT_IMP_DEBE;CCT_IMP_HABER;CCT_IMP_IVA;CCT_IMP_ALI;;PPL_ID;PPL_MPP_ID;PPL_DEU_HIST;PPL_RECARGOS; PPL_INTERESES;PPL_CUOTAS;PPL_IMP_CUOTA;PPL_1ER_VTO;PPL_FEC_CADUCIDAD;'||
+                                 'PPE_ID;PPE_DEU_HIST;PPE_RECARGOS;PPE_INTERESES;PPE_CNT_CUOTAS;PPE_IMP_CUOTA;PPE_FECHA;PPE_1ER_VTO;PPE_FEC_CADUCIDAD;PPE_PPL_ID');
    
   Select rec_id , 
          lPad(to_char(rec_id),10)     ||';'||  
@@ -39,6 +39,7 @@ Begin
          lPad(to_char(obl_Cli_id),10)    ||';'||
          lPad(to_char(obl_pef_anio),5)   ||';'||
          lPad(to_char(obl_pef_periodo),2)||';'||
+         to_char(obl_Cuota_plan,'99')    ||';'||
          lPad(to_char(obl_imp_original,'99999990D00'),15) ||';'||
          lPad(to_char(obl_imp_neto    ,'99999990D00'),15) ||';'||
          lPad(to_char(obl_estado ),5)    ||';'||
@@ -53,12 +54,12 @@ Begin
    ----- Cabecera del plan de pago  
    Select   ';;;;;;'||lPad(to_char(ppl_id),10) ||';'||
             lPad(to_char(ppl_mpp_id),10) ||';'||
-            lPad(to_char(ppl_deuda_historica,'99999990D00'),15) ||';'||
+            lPad(to_char(ppl_deuda_historica,'99999990D00'),15)||';'||
             lPad(to_char(ppl_monto_recargos,'99999990D00'),15) ||';'||
-            lPad(to_char(ppl_imp_intereses,'99999990D00'),15) ||';'||
-            lPad(to_char(ppl_cnt_cuotas   ,'999'),3) ||';'||
-            lPad(to_char(ppl_imp_cuota    ,'99999990D00'),15) ||';'||
-            lPad(to_char(ppl_primer_vto   ,'dd/mm/rrrr'),10) ||';'||
+            lPad(to_char(ppl_imp_intereses,'99999990D00'),15)  ||';'||
+            to_char(ppl_cnt_cuotas        ,'999')              ||';'||
+            lPad(to_char(ppl_imp_cuota    ,'99999990D00'),15)  ||';'||
+            lPad(to_char(ppl_primer_vto   ,'dd/mm/rrrr'),10)   ||';'||
             lPad(to_char(ppl_fec_caducidad,'dd/mm/rrrr'),10)
    into  G_aux 
    From planes_pago 
@@ -73,7 +74,8 @@ Begin
                  lPad(to_char(ppe_imp_cuota,'99999990D00'),15) ||';'||
                  lPad(to_char(ppe_fecha,'dd/mm/rrrr'),10) ||';'||
                  lPad(to_char(ppe_primer_vto,'dd/mm/rrrr'),10) ||';'||
-                 lPad(to_char(ppe_fec_caducidad,'dd/mm/rrrr'),10) ||';'
+                 lPad(to_char(ppe_fec_caducidad,'dd/mm/rrrr'),10) ||';'||
+                 lPad(to_char(ppe_ppl_id),10) 
       into   G_Aux   
       from planes_especiales 
       where ppe_ppl_id = l_ppl_id; 
@@ -95,14 +97,14 @@ Begin
   where cct_rec_id = l_Rec_id
   and   cct_tipo_movimiento = 8)) loop
      g_Linea := rPad(r.TEXTO , 275 ) ;
-     UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;'||G_Linea||';'); 
+     UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;;'||G_Linea||';'); 
   end loop;
   -------------------------------------------------------     
    cTex :=  det_recaudacion(l_Rec_id) ;   
    cPos := instr(cTex,chr(10) );    
    If  cPos > 0 Then
        cRet := substr(cTex,1,cPos-1);
-       UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;'||cRet);     
+       UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;;'||cRet);     
        While cPos > 0 Loop          
           cTex := ltrim(substr(cTex,cPos+1, length(cTex)));          
           cTex := substr(cTex,1,instr(cTex,' ',6))||';'||substr(cTex,instr(cTex,' ',6), length(cTex));
@@ -112,11 +114,11 @@ Begin
           Else 
              cRet := substr(cTex,1, cPos-1 );             
           End if;
-          UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;;'||cRet);    
+          UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;;;'||cRet);    
        End loop; 
    Else     
       cRet := cTex;
-      UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;'||cRet);
+      UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;;'||cRet);
    end if;
    For r in (Select   nov_ser_codigo, nov_descripcion , nov_tipo_novedad , sum(nov_imp_neto ) Importe_Neto 
              from   novedades_facturables 
@@ -125,7 +127,7 @@ Begin
              and   nov_imp_neto > 0  
              Group by nov_ser_codigo, nov_tipo_novedad, nov_descripcion ) Loop
        cRet := to_char(r.nov_tipo_novedad,'99') || ';' || to_char(r.nov_ser_codigo) || ';' || substr(r.nov_descripcion,1,70) || ';' || to_char(r.Importe_Neto,'9999990D00') ;
-       UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;NOV_GENERADA;'||cRet);
+       UTL_FILE.put_line( l_archivo, ';;;;;;;;;;;;;;;;NOV_GENERADA;'||cRet);
    end loop; 
   UTL_FILE.put_line( l_archivo, ' ');
   UTL_FILE.fclose(l_Archivo);

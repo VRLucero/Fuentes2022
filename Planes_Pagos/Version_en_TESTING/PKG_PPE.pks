@@ -1,8 +1,5 @@
 /*<TOAD_FILE_CHUNK>*/
-CREATE OR REPLACE PACKAGE MANANTIAL.pkg_ppe IS
-/*    Desarrollo inical  :  VLUCERO    Julio/agosto 2022  
-
-*/ 
+CREATE OR REPLACE PACKAGE MANANTIAL.pkg_ppe IS 
  G_Log UTL_FILE.file_type;
  G_mensaje Varchar2(2000); 
  FUNCTION  Control_ppe(r_inserta_recaud IN OUT PKG_RECAUDACIONES.vIncRecaudacionRec, pOperacion number , pSecuencia number  ) RETURN BOOLEAN ;
@@ -265,8 +262,8 @@ BEGIN
             WHERE cct_obl_id = p_Cuota 
               AND cct_estado = 15 AND cct_imp_debe > 0;
        END;
-       G_Mensaje := G_Mensaje || ' Pago aplic. obl_id: '|| to_char(p_Cuota) ;
-       IF p_aplicador.v_fecha_cobro > (V_OBL.OBL_FEC_VENCIMIENTO + 2 ) AND p_aplicador.p_ente != 2 THEN
+       G_Mensaje := G_Mensaje || ' Pago aplicado en Cuota '|| to_char(p_Cuota) ;
+       IF p_aplicador.v_fecha_cobro > V_OBL.OBL_FEC_VENCIMIENTO AND p_aplicador.p_ente != 2 THEN
           BEGIN
                 l_monto_recargo := CALCULO_RECARGOS(V_OBL.OBL_FEC_VENCIMIENTO, p_aplicador.v_fecha_cobro , V_OBL.OBL_IMP_ORIGINAL);                     
                 r_datos_iva := PKG_SERVICIOS_FIJOS.f_imp_iva(V_TIPO_IVA, 640110, SYSDATE);
@@ -678,17 +675,34 @@ BEGIN
    r_novedades.nov_cod_iva:= l_tipo_iva;
       /* Si el codigo de servicio es interes o recargo inserta en
                novedades factureables, para que se genere la factura faltate */
+     /* IF l_cuentas_corrientes.cct_ser_codigo = 640106 THEN
+           r_novedades.nov_descripcion :=  'Interes de Financ. Plan de Pago Nro.: '
+                  || LPAD(l_ppl_id, 10, '0')
+                  || ' Cuota Nro.: '
+                  || LPAD(l_cuota_plan, 2, '0'); */ 
    
    r_novedades.nov_descripcion:='Recargo de Actualiz.  P.de Pago Nro.: '|| LPAD(l_plan_pago, 10, '0')|| ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');
    r_novedades.nov_imp_neto   := l_Recargo;
    r_novedades.nov_ser_codigo := 640108;
    l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);
 
+    --   IF l_cuentas_corrientes.cct_ser_codigo = 640106 THEN
+    --        r_novedades.nov_descripcion :=
+    --              'Su Pago Intereses  Plan de Pago Nro.: '
+    --              || LPAD(l_ppl_id, 10, '0')
+    --              || ' Cuota Nro.: '
+    --              || LPAD(l_cuota_plan, 2, '0');
  
    r_novedades.nov_descripcion :='Su Pago Recargos de Act. P.Pago Nro.: '|| LPAD(l_plan_pago, 10, '0')|| ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');
    r_novedades.nov_imp_neto :=  (l_Recargo - l_iva - l_ali) * (-1);
    l_dev_nov := PKG_SERVICIOS_FIJOS.f_insertar_novedad(r_novedades);
 
+   --   IF l_cuentas_corrientes.cct_ser_codigo = 640106 THEN
+   --      r_novedades.nov_descripcion :=
+   --                  'Su Pago IVA s/Inte.Plan de Pago Nro.: '
+   --               || LPAD(l_ppl_id, 10, '0')
+   --               || ' Cuota Nro.: '
+   --               || LPAD(l_cuota_plan, 2, '0');
     
     r_novedades.nov_descripcion :='Su Pago IVA s/Recargos   P.Pago Nro.: ' || LPAD(l_plan_pago, 10, '0') || ' Cuota Nro.: ' || LPAD(l_Cuota, 2, '0');     
     r_novedades.nov_imp_neto :=(l_iva + l_ali)*(-1);
@@ -795,9 +809,8 @@ FUNCTION SeleccionarCuota(p_Plan Number) RETURN number  IS
 Ahora, toma la mas antigua  de las cuotas.   
 */ 
 lRta Number :=0;  
-l_Cuota  Number := 0; 
 CURSOR cPlan(p_plan number ) IS  
-       SELECT obl_id , obl_cuota_plan  FROM  Manantial.OBLIGACIONES  
+       SELECT obl_id   FROM  Manantial.OBLIGACIONES  
        WHERE obl_ppl_id = p_plan 
        AND    obl_tpc_codigo IN (8,9)
        AND    obl_estado = 15 
@@ -808,12 +821,10 @@ BEGIN
    OPEN cPlan(p_Plan);
    FETCH cPlan INTO rPlan;
    IF    cPlan%FOUND THEN
-        lRta   := rPlan.Obl_id;
-        l_Cuota:= rPlan.Obl_Cuota_plan;
+        lRta := rPlan.Obl_id;
    END IF;   
    CLOSE cPlan; 
-   --G_mensaje:=G_mensaje||' Aplic en Cuota('||to_char(l_cuota)||') Obl_id:'|| to_char(lRta) ;
-   G_mensaje:=G_mensaje||' Detecta Cuota('||to_char(l_cuota)||') Obl_id:'|| to_char(lRta) ;
+   G_mensaje:=G_mensaje||' SeleccionarCuota Obl_id:'|| to_char(lRta) ;
    RETURN(lRta);
 END; 
 ------------------------------------------------
@@ -838,7 +849,7 @@ BEGIN
    IF  abs(nSaldo-p_Importe) <= 2 THEN
        lRta := 1;         
    ELSE 
-       G_mensaje:= G_mensaje || ' ControlImporte(): Diferencia EN IMPORTES='|| to_char(abs(nSaldo-p_Importe))  ;    
+       G_mensaje:=G_mensaje||' ControlImporte(): Diferencia IMPORTES='|| to_char(abs(nSaldo-p_Importe))  ;    
    END IF; 
    RETURN(lRta); 
 END; 
@@ -886,7 +897,7 @@ BEGIN
               Update Manantial.planes_pago 
                      set ppl_estado = 2      -- Se termino de pagar 
                      Where ppl_id = p_ppl ;
-               G_mensaje:=G_mensaje||' Plan TERMINADO ' ;        
+               G_mensaje:=G_mensaje||' Cbio estado del plan ' ;        
           End;   
        end if;
     end if;     
@@ -1158,9 +1169,7 @@ rDeuda cDeudas%ROWTYPE;
  lRta   Number := 0;  
  n_Temp Number ; 
  n_Usuario Varchar2(20) := p_inserta_recaud.v_Usuario;
- l_Obl_id         Number :=0 ;
- n_capitalCuotas  Number :=0 ; 
- n_Diff_capital   Number :=0 ;
+ l_Obl_id   Number :=0 ;  
  Begin 
     Open cPlanEspecial( p_inserta_recaud.v_Factura ) ;  -- NRO PLAN DE PAGO ESPECIAL
     fetch cPlanEspecial into rPlan ;
@@ -1183,24 +1192,8 @@ rDeuda cDeudas%ROWTYPE;
              Set obl_ppl_id= n_temp 
              Where obl_id  = rDeuda.obl_id; 
      end loop; 
-     ------- Control del cuadratura del Plan de pago y sus cuotas ----
-     n_capitalCuotas:=0 ;
-     For rCuota in cCuotas(p_inserta_recaud.v_Factura) loop
-         n_capitalCuotas:=n_capitalCuotas + rCuota.ppc_capital ; 
-     end loop; 
-     n_Diff_capital:= rPlan.ppe_Deuda_Historica - n_capitalCuotas ;
-     if n_Diff_capital < 0 Then
-        n_Diff_capital :=0; 
-     end if;   
-     -----------------------------------------------------------------
      -- Insert de Cuotas del plan de pagos --
     For rCuota in cCuotas(p_inserta_recaud.v_Factura) loop
-        --- Si hay diferencias, ajusto en la ultima cuota del plan -------
-        if n_Diff_capital > 0 and  rCuota.ppc_nro_cuota = rPlan.ppe_cnt_cuotas Then
-           rCuota.ppc_capital  := rCuota.ppc_capital + n_Diff_capital ;
-           rCuota.ppc_intereses:= rCuota.ppc_intereses - n_Diff_capital ;
-           G_mensaje:=G_mensaje||' Ajusta capital cuota :'|| to_char(rPlan.ppe_cnt_cuotas) || ' por $:' || ltrim(to_char(n_Diff_capital,'99990D00')) ;
-        end if; 
         l_Obl_id := Generar_Obligacion(rCuota.ppc_nro_cuota, rCuota.ppc_fec_cuota,rCuota.ppc_pef_anio,rCuota.ppc_pef_periodo,rCuota.ppc_imp_cuota,n_temp, rPlan.mpp_id,rPlan.ppe_inm_id,rPlan.ppe_cli_id ,n_Usuario);
         If l_Obl_id = 0 Then
            Return 0; 
@@ -1284,9 +1277,8 @@ l_Ppl        number;
 l_dias_Vto   number:= 365 ;
 nRta         Number := 0;  
 r_aplicador PKG_RECAUDACIONES.vAplicarRecauRec;
-l_Mes        varchar2(2) := to_char(sysdate, 'MM');
 BEGIN        
-    G_Log:= UTL_FILE.fopen('REPORTES', 'Det_Aplic_'||l_mes||'.log', 'A');    
+    G_Log:= UTL_FILE.fopen('REPORTES', 'Det_Aplic_.log', 'A');    
     G_mensaje := To_char(sysdate, 'DD/MM/RRRR hh24:mi:ss') ||' '||r_inserta_recaud.v_identificacion ||' '||lpad(ltrim(to_char(r_inserta_recaud.v_importe,'9999999D99')),15)||' '||
                   lPad(ltrim(to_char(r_inserta_recaud.v_factura)),10)  || ' ' ||to_char(r_inserta_recaud.p_ente) ; 
     r_aplicador.p_rec_id     := NULL;
@@ -1319,13 +1311,8 @@ BEGIN
              IF l_EstadoPlan IN (1,4,5)  THEN                                                    -- Plan ACTIVO, Moroso, CAIDO
                 G_mensaje:=G_mensaje||' Plan Activo '; 
                 nRta := PagarCuota(l_ppl, r_inserta_recaud, r_aplicador, pOperacion, pSecuencia);      
-                if nRta = 0 then  
-                   G_mensaje:=G_mensaje||' Pago Pdte';
-                   nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);              --- Generar la  recaudacion en estado = 3
-                End if; 
              ELSIF  l_EstadoPlan = 2 THEN              
-                --G_mensaje:=G_mensaje||' Plan Cancelado Pago Acreditado';                         -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)  
-                G_mensaje:=G_mensaje||' Plan Cancelado Pago Acreditado';                         -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)
+                G_mensaje:=G_mensaje||' Plan Cancelado Pago Acreditado';                         -- Plan CANCELADO  (SE TERMINO DE PAGAR EL PLAN)  
                 nRta := RecAcreditada(l_ppl, r_inserta_recaud, pOperacion, pSecuencia);          --- Generar la  recaudacion en estado = 2
              ELSIF  l_EstadoPlan = 3 THEN                                                        -- Plan ANULADO
                 G_mensaje:=G_mensaje||' Plan Anulado Pago Pdte'; 
@@ -1334,33 +1321,27 @@ BEGIN
           ELSE       
           -- SINO Generar el plan definitivo  y aplicar pago en el plan cuota 1             
              nRta := GenerarPlan(r_inserta_recaud);         
-             G_mensaje:=G_mensaje||' Generar plan Definitvo:'||to_char(nRta) ;
              IF nRta > 0 THEN    
                 nRta := PagarCuota(nRta, r_inserta_recaud, r_aplicador,  pOperacion, pSecuencia);
-             End if; 
-             If nRta = 0 THEN
+             ELSE                                                              -- no pudo aplicar el pago a la cuota, la paso a recaudacion en estado = 3
                 G_mensaje:=G_mensaje||' Plan NO Generado  Pago Pdte';          
-                nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);   -- Recuadacion en estado = 3                   
+                nRta := RecPendiente(r_inserta_recaud, pOperacion, pSecuencia);   
              END IF;   
           END IF;
        END IF;
     End if; 
     if nRta > 0 Then  
        l_Procesable := TRUE;
-       --G_MENSAJE := 'Aplicado-' || G_Mensaje;
-       If  Upper(G_MENSAJE) like '%PAGO PDTE%' Then
-          G_MENSAJE := 'Proc.PDTE-' || G_Mensaje;
-       Else 
-          G_MENSAJE := 'Procesado-' || G_Mensaje;
-       end if; 
-      /*  det_ppe(p_cuenta  => r_inserta_recaud.v_identificacion, 
+       G_MENSAJE := 'Aplicado-' || G_Mensaje;
+      /* If  Upper(G_MENSAJE) not like '%PAGO PDTE%' Then
+            det_ppe(p_cuenta  => r_inserta_recaud.v_identificacion, 
                     p_via     => r_inserta_recaud.p_ente, 
                     p_importe => r_inserta_recaud.v_importe, 
                     p_salida  => 'Det_ppe_'||ltrim(to_char(r_inserta_recaud.p_ente,'999')));
              
-      */  
-    else       
-       G_MENSAJE := 'DERIVADO-' || G_Mensaje;
+       end if;*/  
+    else 
+       G_MENSAJE := 'EXCLUIDO-' || G_Mensaje;
        l_Procesable := FALSE; 
     end if;     
     UTL_FILE.put_line( G_Log, G_MENSAJE);
