@@ -1,5 +1,7 @@
 CREATE OR REPLACE FUNCTION det_recaudacion(p_rec_id number  ) RETURN varchar2 IS
-
+/* 
+   -- Desarrollo :  VLUCERO    Julio-Agosto 2022   -- 
+*/ 
 l_ret  Varchar2(14000) := '' ;
 l_tmp  Varchar2(14000) := '' ;
 HayPlan BOOLEAN := FALSE;

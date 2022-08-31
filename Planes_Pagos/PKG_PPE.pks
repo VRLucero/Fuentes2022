@@ -1189,7 +1189,7 @@ rDeuda cDeudas%ROWTYPE;
          n_capitalCuotas:=n_capitalCuotas + rCuota.ppc_capital ; 
      end loop; 
      n_Diff_capital:= rPlan.ppe_Deuda_Historica - n_capitalCuotas ;
-     if n_Diff_capital < 0 Then
+     if n_Diff_capital < 0.2 Then   -- Ajustamos por diferencias mayores a  $0.2 
         n_Diff_capital :=0; 
      end if;   
      -----------------------------------------------------------------
@@ -1197,7 +1197,7 @@ rDeuda cDeudas%ROWTYPE;
     For rCuota in cCuotas(p_inserta_recaud.v_Factura) loop
         --- Si hay diferencias, ajusto en la ultima cuota del plan -------
         if n_Diff_capital > 0 and  rCuota.ppc_nro_cuota = rPlan.ppe_cnt_cuotas Then
-           rCuota.ppc_capital  := rCuota.ppc_capital + n_Diff_capital ;
+           rCuota.ppc_capital  := rCuota.ppc_capital   + n_Diff_capital ;
            rCuota.ppc_intereses:= rCuota.ppc_intereses - n_Diff_capital ;
            G_mensaje:=G_mensaje||' Ajusta capital cuota :'|| to_char(rPlan.ppe_cnt_cuotas) || ' por $:' || ltrim(to_char(n_Diff_capital,'99990D00')) ;
         end if; 

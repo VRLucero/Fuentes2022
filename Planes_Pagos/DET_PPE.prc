@@ -1,4 +1,7 @@
 Create or replace procedure det_ppe(p_cuenta varchar2, p_via number, p_importe number, p_salida varchar2 ) is  
+/* 
+   -- Desarrollo :  VLUCERO    Julio-Agosto 2022   -- 
+*/ 
 l_archivo UTL_FILE.file_type; 
 G_linea    varchar2(4000); 
 G_aux      varchar2(4000);

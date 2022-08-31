@@ -7,6 +7,7 @@ CREATE OR REPLACE PACKAGE MANANTIAL.PKG_RECAUDACIONES IS
  -- Se ajusta para que la NC use numeracion de las  oficinas comerciales ---------
  -- 01/06/2018  Se incorpora el tratamiento de la tarjeta ULTRA (tck 9092470) 
  -- 12/08/2020  Se cambia la rutina de calculo de recargos para que  utilice la nueva metodologia de  cociente de indices acumulados para la tarea. 
+ -- Agosto 2022 Se Cambia rutina para tratamiento de pagos iniciales de planes de pagos especiales  VLUCERO  
 ------------------------------------------------------------------
 
    lfile   UTL_FILE.file_type;
