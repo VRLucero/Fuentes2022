@@ -1,4 +1,4 @@
-Create or replace procedure det_ppe(p_cuenta varchar2, p_via number, p_importe number, p_salida varchar2 ) is  
+CREATE OR REPLACE procedure MANANTIAL.det_ppe(p_cuenta varchar2, p_via number, p_importe number, p_fecha date , p_salida varchar2 ) is  
 /* 
    -- Desarrollo :  VLUCERO    Julio-Agosto 2022   -- 
 */ 
@@ -28,8 +28,8 @@ Begin
   from Manantial.recaudaciones 
   where  rec_cuenta = p_cuenta 
   and    rec_vco_codigo = p_via  
-  and    trunc(rec_fec_alta)  = trunc(sysdate)
-  --and    trunc(rec_fec_alta)  = to_date('29072022','ddmmrrrr') 
+ -- and    trunc(rec_fec_alta)  = trunc(sysdate)
+  and    trunc(rec_fec_alta)  = p_fecha   
   and    rec_imp_cobrado = p_importe ;
   ------- Cuota del plan de pago 
    Select obl_ppl_id ,obl_con_inm_id 
@@ -176,4 +176,5 @@ Select * from  planes_especiales_cuotas
 where ppc_ppe_id =   13489798
 
 End; 
-*/ 
+*/
+/

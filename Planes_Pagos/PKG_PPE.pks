@@ -1157,10 +1157,11 @@ Function GenerarPlan(p_inserta_recaud PKG_RECAUDACIONES.vIncRecaudacionRec ) ret
 rDeuda cDeudas%ROWTYPE;
  lRta   Number := 0;  
  n_Temp Number ; 
- n_Usuario Varchar2(20) := p_inserta_recaud.v_Usuario;
+ n_Usuario        Varchar2(20) := p_inserta_recaud.v_Usuario;
  l_Obl_id         Number :=0 ;
  n_capitalCuotas  Number :=0 ; 
  n_Diff_capital   Number :=0 ;
+ n_Demora         Number:= 0; 
  Begin 
     Open cPlanEspecial( p_inserta_recaud.v_Factura ) ;  -- NRO PLAN DE PAGO ESPECIAL
     fetch cPlanEspecial into rPlan ;
@@ -1168,7 +1169,26 @@ rDeuda cDeudas%ROWTYPE;
       G_mensaje:=G_mensaje||' no Existe el plan especial:'|| to_char(p_inserta_recaud.v_Factura);
       Return  0; 
     End if;      
-     -- Insert del plan de pago Definitivo  --
+    /* -------------- Control y Ajuste del plan de pago especial y de sus cuotas -----------------
+         Se asigna 60 dias de la fecha de creacion del plan de pago especial hasta el pago de la primer cuota. 
+         No se calcular recargos, y las fechas de  vencimiento del resto de las cuotas de ajusta hacia adelante a partir de la 
+         fecha de pago de la cuota uno. 
+    */    
+    
+    ---- Reajuste de las  fechas de Vencimiento de las cuotas ---         
+        
+    Begin   
+        Update  Manantial.planes_especiales_cuotas
+        Set    ppc_fec_cuota = decode(ppc_nro_cuota,1,rPlan.PPE_FECHA+60,rPlan.PPE_FECHA+30+(30*ppc_nro_cuota))  
+        Where  ppc_ppe_id    = p_inserta_recaud.v_Factura;
+      --  G_mensaje:=G_mensaje||' Ajusta Vto x'|| to_char(n_Demora) || ' dias' ;
+    exception    when others then  
+        G_mensaje:=G_mensaje||' NO-AJUSTABLE VTO' ;
+    end;
+                 
+    rPlan.Ppe_primer_vto := rPlan.PPE_FECHA+60;   
+     
+    -- Insert del plan de pago Definitivo  --
     Select  Manantial.ppl_seq.NextVal into n_temp from dual; 
     Begin   
         Insert into  Manantial.Planes_Pago(PPL_ID, PPL_MPP_ID  , PPL_INM_ID     ,PPL_CLI_ID      ,PPL_DEUDA_HISTORICA      ,PPL_MONTO_RECARGOS       , PPL_IMP_CUOTA     ,PPL_FECHA, PPL_CNT_CUOTAS     ,PPL_PRIMER_VTO      , PPL_QUITA     ,PPL_TASA_INTERES      , PPL_TASA_RECARGOS    , PPL_TASA_BONIFICACIONES     , PPL_IMP_INTERESES     ,PPL_ESTADO,PPL_FEC_CADUCIDAD      ,PPL_MODALIDAD      , PPL_USR_ALTA,PPL_FEC_ALTA,PPL_BONIF_RECARGO      ,PPL_VTO_PAGO_INICIAL      , PPL_MONTO_PAGO_INICIAL     , PPL_INT_PAGO_INICIAL     ,PPL_MAO_CODIGO) 
